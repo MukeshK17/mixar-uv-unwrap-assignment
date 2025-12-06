@@ -59,7 +59,7 @@ static float compute_angular_defect(const Mesh* mesh, int vertex_idx) {
 
     // YOUR CODE HERE
     if(!mesh) return 0.0f;
-    
+
     int F = mesh->num_triangles;
     const int* tris = mesh->triangles;
     
@@ -88,6 +88,16 @@ static std::vector<int> get_vertex_edges(const TopologyInfo* topo, int vertex_id
     // TODO: Iterate through all edges, add those touching vertex_idx
 
     // YOUR CODE HERE
+    if(!topo) return edges;
+    int E = topo->num_edges;
+    const int* edge_verts = topo->edges;
+    for(int e = 0; e<E; ++e){
+        int v0 = edge_verts[2*e + 0];
+        int v1 = edge_verts[2*e + 1];
+        if(v0 == vertex_idx || v1 == vertex_idx){
+            edges.push_back(e);
+        }
+    }
 
     return edges;
 }
@@ -129,6 +139,36 @@ int* detect_seams(const Mesh* mesh,
     std::set<int> seam_candidates;
 
     // YOUR CODE HERE
+    const int V = mesh->num_vertices;
+    const int F = mesh->num_triangles;
+    const int E = topo->num_edges;
+    const int* tris = mesh->triangles;
+    const int* edges = topo->edges;
+    const int* edge_faces = topo->edge_faces;
+
+    if(F <= 0 || E <=0){
+        *num_seams_out = 0;
+        return NULL;
+    }
+
+    // 1. dual graph (face adjacency)
+    std::vector<std::vector<std::pair<int, int>>> face_adj(F);
+    for (int e = 0; e <E; ++e){
+        int f0 = edge_faces[2*e + 0];
+        int f1 = edge_faces[2*e + 1];
+        if (f0 > == 0 && f1 >= 0 && f0 < F && f1 < F){
+            face_adj[f0].push_back(std::make_pair(e,f1));
+            face_adj[f1].push_back(std::make_pair(e,f0));
+        }
+    }
+
+    
+
+
+
+
+
+
 
     // Convert to array
     *num_seams_out = seam_candidates.size();
