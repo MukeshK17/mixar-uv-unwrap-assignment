@@ -12,7 +12,10 @@
  *
  * See reference/algorithms.md for detailed description
  */
-
+#include "seam_detection.h"
+#include "mesh.h"
+#include "topology.h"
+#include "algorithm"
 #include "unwrap.h"
 #include "math_utils.h"
 #include <stdlib.h>
@@ -55,6 +58,23 @@ static float compute_angular_defect(const Mesh* mesh, int vertex_idx) {
     float angle_sum = 0.0f;
 
     // YOUR CODE HERE
+    if(!mesh) return 0.0f;
+    
+    int F = mesh->num_triangles;
+    const int* tris = mesh->triangles;
+    
+
+    if(vertex_idx < 0 || vertex_idx >= V) return 0.0f;
+
+    for(int f = 0; f < F; ++f){
+        int a = tris[3*f + 0];
+        int b = tris[3*f + 1];  
+        int c = tris[3*f + 2];
+
+        if(a == vertex_idx || b == vertex_idx || c == vertex_idx){
+            angle_sum += compute_vertex_angle_in_triangle(mesh, f, vertex_idx);
+        }
+    }
 
     return 2.0f * M_PI - angle_sum;
 }
