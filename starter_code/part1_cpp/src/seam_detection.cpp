@@ -162,18 +162,87 @@ int* detect_seams(const Mesh* mesh,
         }
     }
 
+    // 2. BFS spanning tree
+
+    std::vector<char> visited(F, 0);
+    std::set<int> tree_edges; // edges in spanning tree
+
+    if(F>0){
+        std::queue<int> q;
+        visited[0] = 1;
+        q.push(0);
+
+        while (!q.empty()){
+            int curr_face = q.front();
+            q.pop();
+
+            for (const auto& neighbor : face_adj[curr_face]){
+                int edge_idx = neighbor.first;
+                int adj_face = neighbor.second;
+
+                if (!visited[adj_face]){
+                    visited[adj_face] = 1;
+                    tree_edges.insert(edge_idx);
+                    q.push(adj_face);
+                }
+            }
+        }
+    }
+
+    // 3.Seam candidates = non-tree edges
+    
+    std::set<int> seam_candidates;
+    for (int e = 0; e < E; ++e){
+        int f0 = edge_faces[2*e + 0];
+        int f1 = edge_faces[2*e + 1];   
+
+        if(f0 < 0  || f1 < 0){  // boundary edge
+            seam_candidates.insert(e);
+            continue;
+        }
+        
+        if(tree_edges.find(e) == tree_edges.end()){ // non-tree edge
+            seam_candidates.insert(e);
+        }
+    }
+
+
+    //4. Angular defect refinement
+    std::vector<std::vector<int>> vertex_inc_edges(V);
+    for (int e = 0; e < E; ++e){
+        int v0 = edges[2*e + 0]
+        int v1 = edges[2*e + 1]
+        if (v0 >= 0 && v0 < V) vertex_inc_edges[v0].push_back(e);
+        if (v1 >= 0 && v1 < V) vertex_inc_edges[v1].push_back(e);
+    }
+
+    const float defect_threshold = 0.5f; // radians
+
+    for (int v = 0 ; v < V; ++v){
+        float defect = compute_angular_defect(mesh, v);
+        if (fabsf(defect) > defect_threshold){
+            for (int e : vertex_inc_edges[v]){
+                if( tree_edges.find(e) == tree_edges.end()){
+                    seam_candidates.insert(e)
+                }
+            }
+        }
+    }
     
 
+    // 5.Convert to array
+    if (seam_candidates.empty()){
+        *num_seams_out = 0;
+        return NULL;
+    }
 
-
-
-
-
-
-    // Convert to array
     *num_seams_out = seam_candidates.size();
     int* seams = (int*)malloc(*num_seams_out * sizeof(int));
 
+    if(!seams){
+        *num_seams_out = 0;
+        return NULL;
+    }
     int idx = 0;
     for (int edge_idx : seam_candidates) {
         seams[idx++] = edge_idx;
