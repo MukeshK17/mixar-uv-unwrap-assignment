@@ -12,9 +12,7 @@
  *
  * See reference/algorithms.md for detailed description
  */
-#include "seam_detection.h"
-#include "mesh.h"
-#include "topology.h"
+
 #include "algorithm"
 #include "unwrap.h"
 #include "math_utils.h"
@@ -61,6 +59,7 @@ static float compute_angular_defect(const Mesh* mesh, int vertex_idx) {
     if(!mesh) return 0.0f;
 
     int F = mesh->num_triangles;
+    int V = mesh->num_vertices;
     const int* tris = mesh->triangles;
     
 
@@ -76,7 +75,7 @@ static float compute_angular_defect(const Mesh* mesh, int vertex_idx) {
         }
     }
 
-    return 2.0f * M_PI - angle_sum;
+    return 2.0f * float(M_PI) - angle_sum;
 }
 
 /**
@@ -107,7 +106,7 @@ int* detect_seams(const Mesh* mesh,
                   float angle_threshold,
                   int* num_seams_out) {
     if (!mesh || !topo || !num_seams_out) return NULL;
-
+    (void)angle_threshold;
     // TODO: Implement seam detection
     //
     // ALGORITHM:
@@ -142,8 +141,7 @@ int* detect_seams(const Mesh* mesh,
     const int V = mesh->num_vertices;
     const int F = mesh->num_triangles;
     const int E = topo->num_edges;
-    const int* tris = mesh->triangles;
-    const int* edges = topo->edges;
+    // const int* edges = topo->edges;
     const int* edge_faces = topo->edge_faces;
 
     if(F <= 0 || E <=0){
@@ -156,7 +154,7 @@ int* detect_seams(const Mesh* mesh,
     for (int e = 0; e <E; ++e){
         int f0 = edge_faces[2*e + 0];
         int f1 = edge_faces[2*e + 1];
-        if (f0 > == 0 && f1 >= 0 && f0 < F && f1 < F){
+        if(f0 >= 0 && f1 >= 0 && f0 < F && f1 < F){
             face_adj[f0].push_back(std::make_pair(e,f1));
             face_adj[f1].push_back(std::make_pair(e,f0));
         }
@@ -191,7 +189,6 @@ int* detect_seams(const Mesh* mesh,
 
     // 3.Seam candidates = non-tree edges
     
-    std::set<int> seam_candidates;
     for (int e = 0; e < E; ++e){
         int f0 = edge_faces[2*e + 0];
         int f1 = edge_faces[2*e + 1];   
@@ -208,22 +205,17 @@ int* detect_seams(const Mesh* mesh,
 
 
     //4. Angular defect refinement
-    std::vector<std::vector<int>> vertex_inc_edges(V);
-    for (int e = 0; e < E; ++e){
-        int v0 = edges[2*e + 0]
-        int v1 = edges[2*e + 1]
-        if (v0 >= 0 && v0 < V) vertex_inc_edges[v0].push_back(e);
-        if (v1 >= 0 && v1 < V) vertex_inc_edges[v1].push_back(e);
-    }
 
     const float defect_threshold = 0.5f; // radians
 
-    for (int v = 0 ; v < V; ++v){
+    for (int v = 0; v < V; ++v) {
         float defect = compute_angular_defect(mesh, v);
-        if (fabsf(defect) > defect_threshold){
-            for (int e : vertex_inc_edges[v]){
-                if( tree_edges.find(e) == tree_edges.end()){
-                    seam_candidates.insert(e)
+
+        if (fabsf(defect) > defect_threshold) {
+            std::vector<int> incident_edges = get_vertex_edges(topo, v);
+            for (int e : incident_edges) {
+                if (tree_edges.find(e) == tree_edges.end()) {
+                    seam_candidates.insert(e);
                 }
             }
         }
@@ -236,7 +228,7 @@ int* detect_seams(const Mesh* mesh,
         return NULL;
     }
 
-    *num_seams_out = seam_candidates.size();
+    *num_seams_out = (int)seam_candidates.size();
     int* seams = (int*)malloc(*num_seams_out * sizeof(int));
 
     if(!seams){
