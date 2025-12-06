@@ -1,3 +1,6 @@
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
+
+
 cmake_minimum_required(VERSION 3.15)
 project(uvunwrap)
 
@@ -34,7 +37,7 @@ set(SOURCES
 )
 
 # Main library
-add_library(uvunwrap SHARED ${SOURCES})
+add_library(uvunwrap STATIC ${SOURCES})
 
 # Test executable
 add_executable(test_unwrap tests/test_unwrap.cpp)
