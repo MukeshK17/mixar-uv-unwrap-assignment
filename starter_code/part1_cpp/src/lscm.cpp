@@ -34,35 +34,35 @@
 #include <Eigen/SparseLU>
 // Alternative: #include <Eigen/IterativeLinearSolvers>
 
-struct Vec3{
+struct Vec3d{
     double x, y, z;
-    Vec3(double x= 0, double y= 0, double z= 0) : x(x), y(y), z(z) {}
-    Vec3 operator-(const Vec3& other) const {
-        return Vec3(x - other.x, y - other.y, z - other.z);
+    Vec3d(double x= 0, double y= 0, double z= 0) : x(x), y(y), z(z) {}
+    Vec3d operator-(const Vec3d& other) const {
+        return Vec3d(x - other.x, y - other.y, z - other.z);
 
     }
 };
 
-static double dot(const Vec3& a, Vec3& b){
+static double dot(const Vec3d& a, Vec3d& b){
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-static Vec3 cross(const Vec3& a, const Vec3& b){
-    return Vec3(
+static Vec3d cross(const Vec3d& a, const Vec3d& b){
+    return Vec3d(
         a.y * b.z - a.z * b.y,
         a.z * b.x - a.x * b.z,
         a.x * b.y - a.y * b.x
     );
 }
 
-static double length(const Vec3& v){
+static double length(const Vec3d& v){
     return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
-static Vec3 normalize(const Vec3& v) {
+static Vec3d normalize(const Vec3d& v) {
     double len = length(v);
-    if (len < 1e-10) return Vec3(0, 0, 0);
-    return Vec3(v.x / len, v.y / len, v.z / len);
+    if (len < 1e-10) return Vec3d(0, 0, 0);
+    return Vec3d(v.x / len, v.y / len, v.z / len);
 }
 
 
@@ -84,7 +84,7 @@ int find_boundary_vertices(const Mesh* mesh,
     // YOUR CODE HERE
 
     std::map<std::pair<int, int>, int> edge_counts;
-
+    const int* tris = mesh->triangles;
     // 1. Count edges
     for (int i = 0; i < num_faces; ++i){
         int f = face_indices[i];
@@ -112,7 +112,7 @@ int find_boundary_vertices(const Mesh* mesh,
 
 
     // Convert to array
-    int num_boundary = boundary_verts.size();
+    int num_boundary = (int)boundary_verts.size();
     *boundary_out = (int*)malloc(num_boundary * sizeof(int));
 
     int idx = 0;
@@ -220,14 +220,14 @@ float* lscm_parameterize(const Mesh* mesh,
             int global_idx = tris[3*f + j];
 
             if (global_to_local.find(global_idx) == global_to_local.end()){
-                global_to_local[global_idx] = local_to_global.size();
+                global_to_local[global_idx] = (int)local_to_global.size();
                 local_to_global.push_back(global_idx);
             }
         }
     }
 
 
-    int n = local_to_global.size();
+    int n = (int)local_to_global.size();
     printf("  Island has %d vertices\n", n);
 
     if (n < 3) {
@@ -257,15 +257,15 @@ float* lscm_parameterize(const Mesh* mesh,
         int v1 = global_to_local[g1];
         int v2 = global_to_local[g2];
 
-        Vec3 p0(vertices[3*g0 + 0], vertices[3*g0 + 1], vertices[3*g0 + 2]); // 3d positions
-        Vec3 p1(vertices[3*g1 + 0], vertices[3*g1 + 1], vertices[3*g1 + 2]);
-        Vec3 p2(vertices[3*g2 + 0], vertices[3*g2 + 1], vertices[3*g2 + 2]);
+        Vec3d p0(vertices[3*g0 + 0], vertices[3*g0 + 1], vertices[3*g0 + 2]); // 3d positions
+        Vec3d p1(vertices[3*g1 + 0], vertices[3*g1 + 1], vertices[3*g1 + 2]);
+        Vec3d p2(vertices[3*g2 + 0], vertices[3*g2 + 1], vertices[3*g2 + 2]);
 
-        Vec3 e1 = p1 - p0;  // project to Local 2d plane 
-        Vec3 e2 = p2 - p0;
-        Vec3 normal = normalize(cross(e1, e2)); 
-        Vec3 u_axis = normalize(e1);
-        Vec3 v_axis = cross(normal, u_axis);
+        Vec3d e1 = p1 - p0;  // project to Local 2d plane 
+        Vec3d e2 = p2 - p0;
+        Vec3d normal = normalize(cross(e1, e2)); 
+        Vec3d u_axis = normalize(e1);
+        Vec3d v_axis = cross(normal, u_axis);
 
         double q0_x = 0.0, q0_y = 0.0;
         double q1_x = dot(e1, u_axis), q1_y = dot(e1, v_axis);
@@ -330,7 +330,7 @@ float* lscm_parameterize(const Mesh* mesh,
 
     int* boundaries = NULL;
     int num_boundary = find_boundary_vertices(mesh, face_indices, num_faces, &boundaries);
-    if (num_boundary > 2 ){
+    if (num_boundary >= 2 ){
         int best_v1 = -1, best_v2 = -1;
         double max_dist_sq = -1.0;
 
@@ -339,14 +339,14 @@ float* lscm_parameterize(const Mesh* mesh,
         int step = ( num_boundary > 100 ) ? num_boundary / 20 : 1;
         for(int i = 0 ; i < num_boundary; i += step){
             int g_i = boundaries[i];
-            Vec3 p_i(vertices[3*g_i + 0], vertices[3*g_i + 1], vertices[3*g_i + 2]);
+            Vec3d p_i(vertices[3*g_i + 0], vertices[3*g_i + 1], vertices[3*g_i + 2]);
 
             for(int j = 0; j < num_boundary; j += step){
                 if (i==j) continue;
                 int g_j = boundaries[j];
-                Vec3 p_j(verttices[3*g_j + 0], vertices[3*g_j + 1], vertices[3*g_j + 2]);
+                Vec3d p_j(vertices[3*g_j + 0], vertices[3*g_j + 1], vertices[3*g_j + 2]);
                 
-                Vec3 diff = p_i - p_j;
+                Vec3d diff = p_i - p_j;
                 double d2 = dot(diff, diff);
                 if(d2 > max_dist_sq){
                     max_dist_sq = d2;
@@ -377,13 +377,13 @@ float* lscm_parameterize(const Mesh* mesh,
     double targets[4] = {0.0, 0.0, 1.0, 0.0};
 
     //zero out rows
-    for(int i = 0 ; A.outerSize(); ++i){
+    for(int i = 0 ; i < (int)A.outerSize(); ++i){
         for(Eigen::SparseMatrix<double>::InnerIterator it(A,i); it ; ++it){
-            int row = it.row();
+            int row = (int)it.row();
             for(int p = 0; p<4; p++){
-                if( row == pinned_indices[p]{
+                if( row == pinned_indices[p]){
                     it.valueRef() = 0.0;
-                })
+                }
             }
         }
     }
@@ -391,7 +391,7 @@ float* lscm_parameterize(const Mesh* mesh,
     //diagonal to 1 and RHS = target
 
     for (int p = 0; p < 4; ++p){
-        int idx pinnned_indices[p]; 
+        int idx = pinned_indices[p]; 
         A.coeffRef(idx, idx) = 1.0;
         b[idx] = targets[p];
 
