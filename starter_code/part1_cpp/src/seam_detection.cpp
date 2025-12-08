@@ -189,38 +189,62 @@ int* detect_seams(const Mesh* mesh,
 
     // 3.Seam candidates = non-tree edges
     
-    for (int e = 0; e < E; ++e){
-        int f0 = edge_faces[2*e + 0];
-        int f1 = edge_faces[2*e + 1];   
+    // for (int e = 0; e < E; ++e){
+    //     int f0 = edge_faces[2*e + 0];
+    //     int f1 = edge_faces[2*e + 1];   
 
-        if(f0 < 0  || f1 < 0){  // boundary edge
-            seam_candidates.insert(e);
+    //     if(f0 < 0  || f1 < 0){  // boundary edge
+    //         seam_candidates.insert(e);
+    //         continue;
+    //     }
+        
+    //     if(tree_edges.find(e) == tree_edges.end()){ // non-tree edge
+    //         seam_candidates.insert(e);
+    //     }
+    // }
+
+
+
+    std::vector<int> non_tree_edges;
+    for (int  e = 0; e < E; ++e) {
+        int f0 = edge_faces[2*e + 0];
+        int f1 = edge_faces[2*e + 1];
+        
+        if (f0 < 0 || f1 < 0){
             continue;
         }
-        
-        if(tree_edges.find(e) == tree_edges.end()){ // non-tree edge
-            seam_candidates.insert(e);
+        if(tree_edges.find(e) == tree_edges.end()){
+            non_tree_edges.push_back(e);
         }
     }
 
+    if (non_tree_edges.empty()) {
+        *num_seams_out = 0;
+        return NULL;
+    }
 
+    std::set<int> non_tree_set(non_tree_edges.begin(), non_tree_edges.end());
+    for (int nte : non_tree_edges) {
+        seam_candidates.insert(nte);
+    }
+    
     //4. Angular defect refinement
 
-    const float defect_threshold = 0.5f; // radians
+    const float defect_threshold = 0.5f; 
 
     for (int v = 0; v < V; ++v) {
         float defect = compute_angular_defect(mesh, v);
 
-        if (fabsf(defect) > defect_threshold) {
+        if (defect > defect_threshold) {
             std::vector<int> incident_edges = get_vertex_edges(topo, v);
+
             for (int e : incident_edges) {
-                if (tree_edges.find(e) == tree_edges.end()) {
+                if (non_tree_set.find(e) != non_tree_set.end()) {
                     seam_candidates.insert(e);
                 }
             }
         }
     }
-    
 
     // 5.Convert to array
     if (seam_candidates.empty()){
