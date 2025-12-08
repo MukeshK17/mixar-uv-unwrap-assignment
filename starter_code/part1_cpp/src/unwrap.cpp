@@ -49,7 +49,7 @@ static int* extract_islands(const Mesh* mesh,
     // 2. Build adjacency list for faces (only through non-seam edges)
     // 3. Run BFS/DFS to find connected components
     // 4. Return array of island IDs (one per face)
-
+    int num_faces = mesh->num_triangles;
     int* face_island_ids = (int*)malloc(mesh->num_triangles * sizeof(int));
 
     // Initialize all to -1 (unvisited)
@@ -58,8 +58,54 @@ static int* extract_islands(const Mesh* mesh,
     }
 
     // YOUR CODE HERE
+    //1
+    std::set<int> seam_set;
+    if(seam_edges){
+        for(int i = 0; i < num_seams; i++){
+            seam_set.insert(seam_edges[i]);
+        }
+    }
+    //2
+    std::vector<std::vector<int>> face_adj(num_faces);
+    int E = topo->num_edges;
+    const int* edge_faces = topo->edge_faces;
+    for(int e = 0; e < E; e++){
+        if(seam_set.find(e)!= seam_set.end()){
+            continue;
+        }
+        int f0 = edge_faces[2*e + 0];
+        int f1 = edge_faces[2*e + 1];   
 
-    *num_islands_out = 0;  // Update this with actual count
+        if(f0!= -1 && f1 != -1){
+            face_adj[f0].push_back(f1);
+            face_adj[f1].push_back(f0);
+        }
+    }
+
+    //3
+    int island_count = 0;
+    for(int start_face = 0; start_face < num_faces; start_face++){
+        if(face_island_ids[start_face]!= -1) continue;
+        int current_island = island_count++;
+        face_island_ids[start_face] = current_island;
+
+        std::queue<int> q;
+        q.push(start_face);
+
+        while(!q.empty()){
+            int u = q.front();
+            q.pop();
+
+            for(int v : face_adj[u]){
+                if(face_island_ids[v]== -1 ){
+                    face_island_ids[v] = current_island;
+                    q.push(v);
+                }
+            }
+        }
+
+    }
+    *num_islands_out = island_count;  // Update this with actual count
 
     printf("Extracted %d UV islands\n", *num_islands_out);
 
