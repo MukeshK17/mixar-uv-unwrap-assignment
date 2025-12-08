@@ -211,6 +211,22 @@ float* lscm_parameterize(const Mesh* mesh,
     // YOUR CODE HERE
     // ...
 
+    const float* vertices = mesh->vertices;
+    const int* tris = mesh->triangles;
+
+    for(int i = 0; i < num_faces; i++){
+        int f = face_indices[i];
+        for(int j = 0; j < 3; j++){
+            int global_idx = tris[3*f + j];
+
+            if (global_to_local.find(global_idx) == global_to_local.end()){
+                global_to_local[global_idx] = local_to_global.size();
+                local_to_global.push_back(global_idx);
+            }
+        }
+    }
+
+
     int n = local_to_global.size();
     printf("  Island has %d vertices\n", n);
 
@@ -229,6 +245,52 @@ float* lscm_parameterize(const Mesh* mesh,
     //   - Project to triangle plane
     //   - Add LSCM energy terms
     // See reference/lscm_matrix_example.cpp
+
+
+    for (int i = 0; i < num_faces; i++){
+        int f = face_indices[i];
+        int g0 = tris[3*f + 0]; // global
+        int g1 = tris[3*f + 1];
+        int g2 = tris[3*f + 2];
+
+        int v0 = global_to_local[g0]; // local
+        int v1 = global_to_local[g1];
+        int v2 = global_to_local[g2];
+
+        Vec3 p0(vertices[3*g0 + 0], vertices[3*g0 + 1], vertices[3*g0 + 2]); // 3d positions
+        Vec3 p1(vertices[3*g1 + 0], vertices[3*g1 + 1], vertices[3*g1 + 2]);
+        Vec3 p2(vertices[3*g2 + 0], vertices[3*g2 + 1], vertices[3*g2 + 2]);
+
+        Vec3 e1 = p1 - p0;  // project to Local 2d plane 
+        Vec3 e2 = p2 - p0;
+        Vec3 normal = normalize(cross(e1, e2)); 
+        Vec3 u_axis = normalize(e1);
+        Vec3 v_axis = cross(normal, u_axis);
+
+        double q0_x = 0.0, q0_y = 0.0;
+        double q1_x = dot(e1, u_axis), q1_y = dot(e1, v_axis);
+        double q2_x = dot(e2, u_axis), q2_y = dot(e2, v_axis);
+
+        double area = 0.5 * std::abs(q1_x * q2_y - q1_y * q2_x);
+        if (area < 1e-10) continue; // degenerate triangle
+
+        // v0 -> v1
+        double dx = q1_x - q0_x;
+        double dy = q1_y - q0_y;
+
+        triplets.push_back(T(2*v0, 2*v1, area*dx));
+        triplets.push_back(T(2*v0, 2*v1+1, area*dy));
+        triplets.push_back(T(2*v0 + 1, 2*v1, area*dy));
+        triplets.push_back(T(2*v0 + 1, 2*v1+1, area*(-dx)));
+
+        // v1 -> v2
+        dx = q2_x - q1_x;
+        dy = q2_y - q1_y; 
+
+    }
+
+
+
 
     // STEP 3: Boundary conditions
     // YOUR CODE HERE
