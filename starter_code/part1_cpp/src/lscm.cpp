@@ -325,6 +325,45 @@ float* lscm_parameterize(const Mesh* mesh,
     // YOUR CODE HERE
     // Find 2 vertices to pin
 
+    int pin1 = 0;
+    int pin2 = 0;
+
+    int* boundaries = NULL;
+    int num_boundary = find_boundary_vertices(mesh, face_indices, num_faces, &boundaries);
+    if (num_boundary > 2 ){
+        int best_v1 = -1, best_v2 = -1;
+        double max_dist_sq = -1.0;
+
+        //
+        
+        int step = ( num_boundary > 100 ) ? num_boundary / 20 : 1;
+        for(int i = 0 ; i < num_boundary; i += step){
+            int g_i = boundaries[i];
+            Vec3 p_i(vertices[3*g_i + 0], vertices[3*g_i + 1], vertices[3*g_i + 2]);
+
+            for(int j = 0; j < num_boundary; j += step){
+                if (i==j) continue;
+                int g_j = boundaries[j];
+                Vec3 p_j(verttices[3*g_j + 0], vertices[3*g_j + 1], vertices[3*g_j + 2]);
+                
+                Vec3 diff = p_i - p_j;
+                double d2 = dot(diff, diff);
+                if(d2 > max_dist_sq){
+                    max_dist_sq = d2;
+                    best_v1 = g_i;
+                    best_v2 = g_j;
+                }
+            }
+        }
+        pin1 = global_to_local[best_v1];
+        pin2 = global_to_local[best_v2];
+
+    }else{
+        pin1 = 0;
+        pin2 = (n / 2 ==0)? 1: n / 2;
+    }
+    if(boundaries) free(boundaries);
+
     // STEP 4: Solve
     Eigen::SparseMatrix<double> A(2*n, 2*n);
     A.setFromTriplets(triplets.begin(), triplets.end());
@@ -334,11 +373,56 @@ float* lscm_parameterize(const Mesh* mesh,
     // YOUR CODE HERE
     // Set up solver and solve
 
+    int pinned_indices[4] = {2*pin1, 2*pin1 + 1, 2*pin2, 2*pin2 + 1};
+    double targets[4] = {0.0, 0.0, 1.0, 0.0};
+
+    //zero out rows
+    for(int i = 0 ; A.outerSize(); ++i){
+        for(Eigen::SparseMatrix<double>::InnerIterator it(A,i); it ; ++it){
+            int row = it.row();
+            for(int p = 0; p<4; p++){
+                if( row == pinned_indices[p]{
+                    it.valueRef() = 0.0;
+                })
+            }
+        }
+    }
+
+    //diagonal to 1 and RHS = target
+
+    for (int p = 0; p < 4; ++p){
+        int idx pinnned_indices[p]; 
+        A.coeffRef(idx, idx) = 1.0;
+        b[idx] = targets[p];
+
+    }
+
+    A.prune(0.0, 1e-12);
+    // solving
+    Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+    solver.compute(A);
+    if(solver.info() != Eigen::Success){
+        fprintf(stderr, "LSCM: SparseLU decomposition failed\n");
+        return NULL;
+    }
+
+    Eigen::VectorXd x = solver.solve(b);
+    if(solver.info() != Eigen::Success){
+        fprintf(stderr, "LSCM: SparseLU solving failed\n");
+        return NULL;
+    }
+
+
+
     // STEP 5: Extract UVs
     float* uvs = (float*)malloc(n * 2 * sizeof(float));
 
     // YOUR CODE HERE
     // Extract from solution vector
+    for(int i =0; i< n; i++){
+        uvs[i*2] = (float)x[2*i];
+        uvs[i*2 + 1] = (float)x[2*i + 1];
+    }
 
     normalize_uvs_to_unit_square(uvs, n);
 
