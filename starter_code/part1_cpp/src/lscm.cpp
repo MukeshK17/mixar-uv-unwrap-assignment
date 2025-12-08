@@ -283,10 +283,39 @@ float* lscm_parameterize(const Mesh* mesh,
         triplets.push_back(T(2*v0 + 1, 2*v1, area*dy));
         triplets.push_back(T(2*v0 + 1, 2*v1+1, area*(-dx)));
 
+        triplets.push_back(T(2*v0, 2*v0, -area*dx));
+        triplets.push_back(T(2*v0, 2*v0+1, -area*dy));
+        triplets.push_back(T(2*v0 + 1, 2*v0, -area*dy));
+        triplets.push_back(T(2*v0 + 1, 2*v0 + 1, -area*(-dx)));
+
         // v1 -> v2
         dx = q2_x - q1_x;
         dy = q2_y - q1_y; 
 
+        triplets.push_back(T(2*v1, 2*v2, area*dx));
+        triplets.push_back(T(2*v1, 2*v2+1, area*dy));
+        triplets.push_back(T(2*v1 + 1, 2*v2, area*dy));
+        triplets.push_back(T(2*v1 + 1, 2*v2+1, area*(-dx)));
+
+        triplets.push_back(T(2*v1, 2*v1, -area*dx));
+        triplets.push_back(T(2*v1, 2*v1+1, -area*dy));
+        triplets.push_back(T(2*v1 + 1, 2*v1, -area*dy));
+        triplets.push_back(T(2*v1 + 1, 2*v1 + 1, -area*(-dx)));
+
+        // v2 -> v0
+        dx = q0_x - q2_x;
+        dy = q0_y - q2_y;
+
+        triplets.push_back(T(2*v2, 2*v0, area*dx));
+        triplets.push_back(T(2*v2, 2*v0 + 1, area*dy));
+        triplets.push_back(T(2*v2 + 1, 2*v0, area*dy));
+        triplets.push_back(T(2*v2 + 1, 2*v0 + 1, area*(-dx)));
+
+        triplets.push_back(T(2*v2, 2*v2, -area*dx));
+        triplets.push_back(T(2*v2, 2*v2 + 1, -area*dy));
+        triplets.push_back(T(2*v2 + 1, 2*v2, -area*dy));    
+        triplets.push_back(T(2*v2 + 1, 2*v2 + 1, -area*(-dx)));
+        
     }
 
 
