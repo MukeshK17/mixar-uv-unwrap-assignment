@@ -34,6 +34,38 @@
 #include <Eigen/SparseLU>
 // Alternative: #include <Eigen/IterativeLinearSolvers>
 
+struct Vec3{
+    double x, y, z;
+    Vec3(double x= 0, double y= 0, double z= 0) : x(x), y(y), z(z) {}
+    Vec3 operator-(const Vec3& other) const {
+        return Vec3(x - other.x, y - other.y, z - other.z);
+
+    }
+};
+
+static double dot(const Vec3& a, Vec3& b){
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+static Vec3 cross(const Vec3& a, const Vec3& b){
+    return Vec3(
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    );
+}
+
+static double length(const Vec3& v){
+    return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+static Vec3 normalize(const Vec3& v) {
+    double len = length(v);
+    if (len < 1e-10) return Vec3(0, 0, 0);
+    return Vec3(v.x / len, v.y / len, v.z / len);
+}
+
+
 int find_boundary_vertices(const Mesh* mesh,
                           const int* face_indices,
                           int num_faces,
@@ -50,6 +82,34 @@ int find_boundary_vertices(const Mesh* mesh,
     std::set<int> boundary_verts;
 
     // YOUR CODE HERE
+
+    std::map<std::pair<int, int>, int> edge_counts;
+
+    // 1. Count edges
+    for (int i = 0; i < num_faces; ++i){
+        int f = face_indices[i];
+        int v0 = tris[3*f + 0];
+        int v1 = tris[3*f + 1];
+        int v2 = tris[3*f + 2];
+
+        int edges[3][2] = {{v0, v1}, {v1, v2}, {v2, v0}};
+
+        for (int e = 0; e < 3; ++e){
+            int a = edges[e][0];
+            int b = edges[e][1];
+            if (a > b) std::swap(a, b);
+            edge_counts[{a, b}]++;
+        }
+    }
+
+    // 2. Identify boundary edges
+    for (auto const& kv : edge_counts) {
+        if (kv.second == 1) {
+            boundary_verts.insert(kv.first.first);
+            boundary_verts.insert(kv.first.second);
+        }
+    }
+
 
     // Convert to array
     int num_boundary = boundary_verts.size();
