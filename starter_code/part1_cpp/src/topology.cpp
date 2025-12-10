@@ -82,7 +82,7 @@ TopologyInfo* build_topology(const Mesh* mesh) {
     // TODO: Your implementation here
     int V = mesh->num_vertices;
     int F = mesh->num_triangles;
-    const int* tris = mesh-> triangles;
+    const int* tris = mesh->triangles;
 
     if (!tris || V <= 0 || F <= 0) {
         return topo;
@@ -144,8 +144,10 @@ TopologyInfo* build_topology(const Mesh* mesh) {
         printf("Error: malloc failed in build_topology\n");
         if (edges) free(edges);
         if (edge_faces) free(edge_faces);
-        topo->num_edges = 0;
-        return topo;
+        // topo->num_edges = 0;
+        free(topo);
+        // return topo;
+        return NULL;
     }
 
     // filling arrays
