@@ -19,6 +19,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <queue>
 
 /**
  * @brief Extract UV islands after seam cuts
@@ -130,6 +131,23 @@ static void copy_island_uvs(Mesh* result,
     //     result->uvs[global_idx * 2 + 1] = island_uvs[local_idx * 2 + 1]
 
     // YOUR CODE HERE
+    const int* tris = result->triangles;
+
+    for (int i = 0; i < num_faces; i++) {
+        int f = face_indices[i];
+        
+        for (int j = 0; j < 3; j++) {
+            int global_idx = tris[3*f + j];
+            auto it = global_to_local.find(global_idx);
+            if (it != global_to_local.end()) {
+                int local_idx = it->second;
+                
+                result->uvs[2*global_idx]     = island_uvs[2*local_idx];
+                result->uvs[2*global_idx + 1] = island_uvs[2*local_idx + 1];
+            }
+        }
+    }
+
 }
 
 Mesh* unwrap_mesh(const Mesh* mesh,
@@ -185,7 +203,7 @@ Mesh* unwrap_mesh(const Mesh* mesh,
 
         printf("  %d faces in island\n", (int)island_faces.size());
 
-        if (island_faces.size() < params->min_island_faces) {
+        if ((int)island_faces.size() < params->min_island_faces) {
             printf("  Skipping (too small)\n");
             continue;
         }
@@ -194,21 +212,57 @@ Mesh* unwrap_mesh(const Mesh* mesh,
         // - Call lscm_parameterize
         // - Build global_to_local mapping
         // - Copy UVs to result mesh
+        float* island_uvs = lscm_parameterize(mesh, island_faces.data(), (int)island_faces.size());
+        if(island_uvs){
+            std::map<int, int> global_to_local;
+            int local_idx = 0;
+            const int* tris = mesh->triangles;
+            
+            for(int f : island_faces){
+                for(int j = 0; j <3 ; j++){
+                    int g_idx = tris[3*f + j];
+                    if(global_to_local.find(g_idx) == global_to_local.end()){
+                        global_to_local[g_idx] = local_idx++;
+                    }
+                }
+            }
+            copy_island_uvs(result, island_uvs, island_faces.data(), (int)island_faces.size(), global_to_local);
+            free(island_uvs);
+        }
+
     }
+
+
+    UnwrapResult* result_data = (UnwrapResult*)malloc(sizeof(UnwrapResult));
+    result_data->num_islands = num_islands;
+    result_data->face_island_ids = face_island_ids; 
+    
+    // int* vertex_island_ids = (int*)malloc(mesh->num_vertices * sizeof(int));
+    // for(int i=0; i<mesh->num_vertices; i++) vertex_island_ids[i] = -1;
+    
+    // const int* tris = mesh->triangles;
+    // for(int f=0; f<mesh->num_triangles; f++) {
+    //     int isl = face_island_ids[f];
+    //     for(int j=0; j<3; j++) {
+    //         vertex_island_ids[tris[3*f+j]] = isl;
+    //     }
+    // }
+    // result_data->island_indices = vertex_island_ids;
+
 
     // STEP 5: Pack islands if requested
     if (params->pack_islands) {
-        UnwrapResult temp_result;
-        temp_result.num_islands = num_islands;
-        temp_result.face_island_ids = face_island_ids;
+        // UnwrapResult temp_result;
+        // temp_result.num_islands = num_islands;
+        // temp_result.face_island_ids = face_island_ids;
 
-        pack_uv_islands(result, &temp_result, params->island_margin);
+        pack_uv_islands(result, result_data, params->island_margin);
     }
 
     // STEP 6: Compute quality metrics
-    UnwrapResult* result_data = (UnwrapResult*)malloc(sizeof(UnwrapResult));
-    result_data->num_islands = num_islands;
-    result_data->face_island_ids = face_island_ids;
+    // UnwrapResult* result_data = (UnwrapResult*)malloc(sizeof(UnwrapResult));
+    // result_data->num_islands = num_islands;
+    // result_data->face_island_ids = face_island_ids;
     compute_quality_metrics(result, result_data);
 
     *result_out = result_data;
@@ -228,5 +282,8 @@ void free_unwrap_result(UnwrapResult* result) {
     if (result->face_island_ids) {
         free(result->face_island_ids);
     }
+    // if(result->island_indices){
+    //     free(result->island_indices);
+    // }
     free(result);
 }
