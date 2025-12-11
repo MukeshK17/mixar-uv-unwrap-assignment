@@ -13,15 +13,37 @@ Commands:
 import argparse
 import sys
 import os
+import json
+import time
+import numpy as np
 from pathlib import Path
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+try:
+    from uvwrap.bindings import load_mesh, unwrap, save_mesh
+    from uvwrap.metrics import compute_stretch, compute_coverage, compute_angle_distortion
+    from uvwrap.processor import UnwrapProcessor
+    from uvwrap.optimizer import optimize_parameters
+except ImportError as e:
+    print(f"Error importing modules: {e}")
+    print("Ensure you are running this script from the 'part2_python' directory.")
+    sys.exit(1)
 
 def cmd_unwrap(args):
     """
     Unwrap single mesh
-
+    
     IMPLEMENTATION REQUIRED
     """
+
+    input_path = Path(args.input)
+    output_path = Path(args.output)
+    
+    if not input_path.exists():
+        print(f"Error: Input file '{input_path}' not found.")
+        return 1
     # TODO: Implement
     #
     # Steps:
@@ -40,8 +62,34 @@ def cmd_unwrap(args):
 
     print(f"Unwrapping: {Path(args.input).name}")
     # YOUR CODE HERE
-    return 0
+    start_time = time.time()
 
+    try:
+        mesh = load_mesh(str(input_path))
+        params = {
+            'angle_threshold': args.angle_threshold,
+            'min_island_faces': args.min_island,
+            'pack_islands': args.pack,
+            'island_margin': args.margin
+        }
+        #unwrapping
+        result_mesh, result_stats = unwrap(mesh, params)
+
+        save_mesh(result_mesh, str(output_path))
+        duration = time.time() - start_time
+
+        stretch = compute_stretch(result_mesh, result_mesh.uvs)
+        coverage = compute_coverage(result_mesh.uvs, result_mesh.triangles)
+
+        print(f"✓ Completed in {duration:.2f}s")
+        print(f"  Islands:  {result_stats.get('num_islands', 0)}")
+        print(f"  Stretch:  {stretch:.4f}")
+        print(f"  Coverage: {coverage:.2%}")
+        print(f"  Saved to: {output_path}")
+    except Exception as e:
+        print(f"Error during unwrap:{e}")
+        return 1
+    return 0
 
 def cmd_batch(args):
     """
@@ -49,6 +97,10 @@ def cmd_batch(args):
 
     IMPLEMENTATION REQUIRED
     """
+    input_dir = Path(args.input_dir)
+    output_dir = Path(args.output_dir)
+    if not input_dir.exists():
+        print(f"Error: input directory '{input_dir}' not found")
     # TODO: Implement
     #
     # Steps:
@@ -59,9 +111,59 @@ def cmd_batch(args):
     # 5. Print results
     # 6. Optionally save report
 
+    # YOUR CODE HERE    
+
+    files = list(input_dir.glob("*.obj"))
+    if not files:
+        print(f"No .obj files found in {input_dir}")
+        return 1
+
     print("UV Unwrapping Batch Processor")
     print("=" * 40)
-    # YOUR CODE HERE
+    print(f"Found {len(files)} files.")
+    print(f"Threads: {args.threads or 'Auto'}")
+    print("-" * 40)
+
+    processor = UnwrapProcessor(num_threads=args.threads)
+
+    params = {
+        'angle_threshold': args.angle_threshold,
+        'min_island_faces': 10,
+        'pack_islands': True,
+        'island_margin': 0.02
+    }
+
+    def on_progress(current, total, filename):
+        percent = int(100 * current / total)
+        bar_len = 30
+        filled_len = int(bar_len * current // total)
+        bar = '=' * filled_len + '-' * (bar_len - filled_len)
+        print(f"\r[{bar}] {percent}% - {filename}   ", end='', flush=True)
+
+    try:
+        results = processor.process_batch(
+            input_files=[str(f) for f in files],
+            output_dir=str(output_dir),
+            params=params,
+            on_progress=on_progress
+        )
+        print("\n" + "=" * 40)
+
+        summary = results['summary']
+        print("batch complete")
+        print(f"Total:      {summary['total_files']}")
+        print(f"Success:    {summary['successful']}")
+        print(f"Failed:     {summary['failed']}")
+        print(f"Avg Time:   {summary['avg_processing_time']:.3f}s")
+        print(f"Avg Stretch:{summary['avg_stretch']:.4f}")
+
+        if args.report:
+            with open(args.report, 'w') as f:
+                json.dump(results, f, indent = 2)
+            print(f"Report saved to {args.report}")
+    except Exception as e:
+        print((f"\nBatch processing failed: {e}"))
+        return 1
     return 0
 
 
@@ -71,6 +173,15 @@ def cmd_optimize(args):
 
     IMPLEMENTATION REQUIRED
     """
+
+    input_path = Path(args.input)
+    if not input_path.exists():
+        print(f"Error: Input file '{input_path}' not found.")
+        return 1
+
+    print(f"Optimizing parameters for: {input_path.name}")
+    print(f"Target metric: {args.metric}")
+
     # TODO: Implement
     #
     # Steps:
@@ -80,7 +191,37 @@ def cmd_optimize(args):
     # 4. Optionally save params to JSON
     # 5. Optionally unwrap with best params
 
-    print(f"Optimizing parameters for: {Path(args.input).name}")
+
+    try:
+        best_params, best_score = optimize_parameters(
+            str(input_path),
+            target_metric= args.metric,
+            verbose=True
+        )
+
+        print("\n" + "=" * 40)
+        print(f"OPTIMAL CONFIGURATION FOUND")
+        print(f"Score ({args.metric}): {best_score:.4f}")
+        print("-" * 20)
+        print(json.dumps(best_params, indent=2))
+        print("=" * 40)
+
+        if args.save_params:
+            with open(args.save_params, 'w') as f:
+                json.dump(best_params, f, indent=2)
+            print(f"Parameters saved to {args.save_params}")
+
+        if args.output:
+            print(f"Saving optimized mesh to {args.output}...")
+            mesh = load_mesh(str(input_path))
+            res_mesh, _ = unwrap(mesh, best_params)
+            save_mesh(res_mesh, args.output)
+            print("Done.")
+
+    except Exception as e:
+        print(f"Optimization failed: {e}")
+        return 1
+    # print(f"Optimizing parameters for: {Path(args.input).name}")
     # YOUR CODE HERE
     return 0
 
@@ -91,6 +232,13 @@ def cmd_analyze(args):
 
     IMPLEMENTATION REQUIRED
     """
+
+    input_path = Path(args.input)
+    if not input_path.exists():
+        print(f"Error: Input file '{input_path}' not found.")
+        return 1
+    print(f"Analyzing: {input_path.name}")
+
     # TODO: Implement
     #
     # Steps:
@@ -101,8 +249,38 @@ def cmd_analyze(args):
     # 5. Print results
     # 6. Provide quality assessment
 
-    print(f"Analyzing: {Path(args.input).name}")
-    # YOUR CODE HERE
+    try:
+        mesh = load_mesh(str(input_path))
+        if mesh.uvs is None or len(mesh.uvs) == 0:
+            print("Error: Mesh has no UV coordinates to analyze")
+            return 1
+
+        stretch = compute_stretch(mesh, mesh.uvs)
+        coverage = compute_coverage(mesh.uvs, mesh.triangles)
+        angle_dist  = compute_angle_distortion(mesh, mesh.uvs)
+
+        print("-" * 30)
+        print(f"{'Metric':<20} | {'Value':<10}")
+        print("-" * 30)
+        print(f"{'Stretch (>=1.0)':<20} | {stretch:.4f}")
+        print(f"{'Coverage (0-1)':<20} | {coverage:.2%}")
+        print(f"{'Angle Dist (deg)':<20} | {np.degrees(angle_dist):.2f}°") # Convert rad to deg for display
+        print("-" * 30)
+
+        print("Assessment:")
+        if stretch < 1.2 and angle_dist < np.radians(5):
+            print("✓ Excellent quality (Low distortion)")
+        elif stretch < 2.0:
+            print("⚠ Acceptable quality (Moderate distortion)")
+        else:
+            print("✗ Poor quality (High distortion detected)")
+            
+    except Exception as e:
+        print(f"Analysis failed: {e}")
+        return 1
+
+    # print(f"Analyzing: {Path(args.input).name}")
+    # # YOUR CODE HERE
     return 0
 
 
@@ -133,7 +311,7 @@ Examples:
   python cli.py analyze mesh.obj
         """
     )
-
+    
     subparsers = parser.add_subparsers(dest='command', help='Commands')
 
     # Unwrap command
