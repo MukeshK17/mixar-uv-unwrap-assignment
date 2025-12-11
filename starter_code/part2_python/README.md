@@ -11,6 +11,7 @@ part2_python/
 │   └── optimizer.py      # Grid search algorithm
 ├── cli.py                # Command-line interface entry point
 └── requirements.txt      # Dependencies
+```
 
 ## Implementation details
 1. **bindings.py (C++ Bindings)**
