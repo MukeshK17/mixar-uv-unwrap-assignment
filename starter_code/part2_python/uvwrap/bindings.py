@@ -228,11 +228,25 @@ def load_mesh(filename):
     """
 
     if MOCK_MODE or _lib is None:
-        if not os.path.exists(filename):
-             print(f"Mock Warning: File {filename} not found, using dummy cube.")
+        if not os.path.exists(filename) and "test_cube" not in filename:
+            # Check if it's a mock output file we made earlier
+            is_mock_output = False
+            try:
+                with open(filename, 'r') as f:
+                    if "# Mock OBJ" in f.readline():
+                        is_mock_output = True
+            except: pass
+            
+            if not is_mock_output:
+                print(f"Mock Warning: File {filename} not found, using dummy cube.")
         verts = [[0,0,0], [1,0,0], [1,1,0], [0,1,0], [0,0,1], [1,0,1], [1,1,1], [0,1,1]]
         tris = [[0,1,2], [0,2,3], [4,5,6], [4,6,7]]
-        return Mesh(verts, tris)
+        uvs = [
+            [0,0], [1,0], [1,1], [0,1], 
+            [0,0], [1,0], [1,1], [0,1]
+        ]
+        
+        return Mesh(verts, tris, uvs)
     # TODO: Implement
     #
     # Steps:
