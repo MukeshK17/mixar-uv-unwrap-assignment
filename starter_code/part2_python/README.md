@@ -2,7 +2,7 @@
 This part is the Python-based automation layer. It acts as the bridge between the C++ core (Part 1) and the user, allowing for batch processing, quality analysis, and parameter optimization.
 
 ##  Project Structure
-``'text
+```text
 part2_python/
 ├── uvwrap/               
 │   ├── bindings.py       # Ctypes wrapper (C++ ↔ Python bridge)
