@@ -186,9 +186,23 @@ Mesh* unwrap_mesh(const Mesh* mesh,
     int num_islands;
     int* face_island_ids = extract_islands(mesh, topo, seam_edges, num_seams, &num_islands);
 
-    // STEP 4: Parameterize each island using LSCM
     Mesh* result = allocate_mesh_copy(mesh);
-    result->uvs = (float*)calloc(mesh->num_vertices * 2, sizeof(float));
+    
+    if (!result) {
+        fprintf(stderr, "Failed to allocate result mesh\n");
+        free_topology(topo);
+        free(seam_edges);
+        free(face_island_ids);
+        return NULL;
+    }
+
+    // Ensure UVs are allocated (if allocate_mesh_copy didn't do it)
+    if (!result->uvs) {
+        result->uvs = (float*)calloc(mesh->num_vertices * 2, sizeof(float));
+    }
+    
+
+    // STEP 4: Parameterize each island using LSCM
 
     for (int island_id = 0; island_id < num_islands; island_id++) {
         printf("\nProcessing island %d/%d...\n", island_id + 1, num_islands);
@@ -249,6 +263,9 @@ Mesh* unwrap_mesh(const Mesh* mesh,
     // }
     // result_data->island_indices = vertex_island_ids;
 
+    result_data->avg_stretch = 0.0f;
+    result_data->max_stretch = 0.0f;
+    result_data->coverage = 0.0f;
 
     // STEP 5: Pack islands if requested
     if (params->pack_islands) {
