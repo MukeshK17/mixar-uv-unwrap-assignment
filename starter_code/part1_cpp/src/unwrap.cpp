@@ -304,3 +304,67 @@ void free_unwrap_result(UnwrapResult* result) {
     // }
     free(result);
 }
+
+// --------------
+
+#ifdef _WIN32
+#define EXPORT __declspec(dllexport)
+#else
+#define EXPORT
+#endif
+
+extern "C" {
+    /**
+     * @brief Entry point for Python/Blender
+     * Converts raw C-arrays into Mesh structs and calls the engine.
+     */
+    EXPORT int unwrap_mesh_data(
+        const float* coords, int num_verts,
+        const int* triangles, int num_tris,
+        float* uvs_out,
+        float angle_thresh, int min_island_faces, 
+        int pack_islands, float island_margin
+    ) {
+        // 1. Wrap raw data into Mesh struct
+        // Note: We cast away const, but unwrap_mesh treats input as read-only logic-wise
+        Mesh input_mesh;
+        input_mesh.num_vertices = num_verts;
+        input_mesh.num_triangles = num_tris;
+        input_mesh.vertices = (float*)coords; 
+        input_mesh.triangles = (int*)triangles;
+        input_mesh.uvs = NULL; 
+        
+        // 2. Setup Params
+        UnwrapParams params;
+        params.angle_threshold = angle_thresh;
+        params.min_island_faces = min_island_faces;
+        params.pack_islands = pack_islands;
+        params.island_margin = island_margin;
+
+        // 3. Call the C++ Engine
+        UnwrapResult* result_meta = NULL;
+        Mesh* result_mesh = unwrap_mesh(&input_mesh, &params, &result_meta);
+
+        if (!result_mesh || !result_meta) {
+            return 0; // Failure
+        }
+
+        // 4. Copy Output UVs to Python's buffer
+        if (result_mesh->uvs) {
+            for (int i = 0; i < num_verts * 2; i++) {
+                uvs_out[i] = result_mesh->uvs[i];
+            }
+        }
+
+        // 5. Cleanup (Free the memory we allocated inside C++)
+        // For this assignment, standard free is usually safe for the result structure.
+        if(result_mesh->uvs) free(result_mesh->uvs);
+        if(result_mesh->vertices) free(result_mesh->vertices);
+        if(result_mesh->triangles) free(result_mesh->triangles);
+        free(result_mesh);
+        
+        free_unwrap_result(result_meta);
+
+        return 1; // Success
+    }
+}
