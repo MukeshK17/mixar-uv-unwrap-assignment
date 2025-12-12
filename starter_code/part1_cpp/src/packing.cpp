@@ -127,6 +127,16 @@ void pack_uv_islands(Mesh* mesh,
             islands[i].height = islands[i].max_v - islands[i].min_v;
         }
     }
+    // --- OPTIMIZATION START: Calculate Total Area for Dynamic Bin Width ---
+    float total_area = 0.0f;
+    for(int i=0; i<result->num_islands; ++i) {
+        // Skip empty islands logic is handled in the loop below, but safe to check here
+        if (islands[i].min_u != FLT_MAX) {
+            // Add area with margin approximation
+            total_area += (islands[i].width + margin) * (islands[i].height + margin);
+        }
+    }
+    // --- OPTIMIZATION END ---
 
     // STEP 2: Sort by height
     // YOUR CODE HERE
@@ -150,7 +160,11 @@ void pack_uv_islands(Mesh* mesh,
     // Heuristic: Width ~ Sqrt(Total Area). 
     // For simplicity in this assignment, we often pack into a strip and then scale.
     // Let's use width 1.0 (arbitrary since we scale later).
-    const float BIN_WIDTH = 1.0f;
+    // const float BIN_WIDTH = 1.0f;
+
+    // FIX: Dynamic Bin Width
+    // Ideally, we want a square result. So we try to pack into a width of sqrt(total_area).
+    const float BIN_WIDTH = (total_area > 0.0f) ? sqrtf(total_area) : 1.0f;
 
     if (!sorted_indices.empty()) {
         shelf_height = islands[sorted_indices[0]].height;
