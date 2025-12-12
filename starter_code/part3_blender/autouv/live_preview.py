@@ -17,7 +17,7 @@ class AutoUV_OT_LivePreview(bpy.types.Operator):
 
         if event.type == 'TIMER':
             # In a real tool, verify depsgraph updates.
-            # Here we continuously trigger every 200ms if active object is valid
+            # Continuously trigger every 200ms if active object is valid
             now = time.time()
             if now - self._last_update > self.DEBOUNCE_TIME:
                 if context.active_object and context.active_object.type == 'MESH':

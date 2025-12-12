@@ -14,9 +14,9 @@ class AutoUV_PT_Panel(bpy.types.Panel):
         # --- Settings ---
         box = layout.box()
         box.label(text="Parameters", icon='PREFERENCES')
-        box.prop(scene, "autouv_angle_threshold", text="Angle")
-        box.prop(scene, "autouv_min_island", text="Min Island")
-        box.prop(scene, "autouv_margin", text="Margin")
+        box.prop(scene, "autouv_angle_threshold", text="Angle") # type: ignore
+        box.prop(scene, "autouv_min_island", text="Min Island") # type: ignore
+        box.prop(scene, "autouv_margin", text="Margin") # type: ignore
 
         # --- Seam Tools ---
         row = layout.row(align=True)
@@ -41,20 +41,22 @@ class AutoUV_PT_Panel(bpy.types.Panel):
         
         # --- Metrics ---
         box = layout.box()
-        box.label(text="Quality Metrics", icon='Graph')
+        box.label(text="Quality Metrics", icon='GRAPH') 
         col = box.column(align=True)
         col.label(text=f"Stretch: {scene.get('autouv_score_stretch', 0.0):.4f}")
         col.label(text=f"Coverage: {scene.get('autouv_score_coverage', 0.0):.2%}")
         col.label(text=f"Distortion: {scene.get('autouv_score_angle', 0.0):.2f}°")
 
 def register():
+    # Register the custom properties so they exist at runtime
     bpy.types.Scene.autouv_angle_threshold = bpy.props.FloatProperty(name="Angle", default=30.0, min=1.0)
     bpy.types.Scene.autouv_min_island = bpy.props.IntProperty(name="Min Island", default=10, min=1)
     bpy.types.Scene.autouv_margin = bpy.props.FloatProperty(name="Margin", default=0.02, min=0.0, max=0.5)
+    
     bpy.utils.register_class(AutoUV_PT_Panel)
 
 def unregister():
     bpy.utils.unregister_class(AutoUV_PT_Panel)
-    del bpy.types.Scene.autouv_angle_threshold
-    del bpy.types.Scene.autouv_min_island
-    del bpy.types.Scene.autouv_margin   
+    del bpy.types.Scene.autouv_angle_threshold # type: ignore
+    del bpy.types.Scene.autouv_min_island # type: ignore
+    del bpy.types.Scene.autouv_margin # type: ignore
