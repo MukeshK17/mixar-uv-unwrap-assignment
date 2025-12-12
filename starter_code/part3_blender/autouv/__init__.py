@@ -11,22 +11,26 @@ bl_info = {
 import bpy
 import sys
 import os
+import importlib
 
-# Ensure Blender can find the 'part2_python' library
+# Add current directory to path to find 'uvwrap'
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# Navigate up: autouv -> part3_blender -> root
-project_root = os.path.dirname(os.path.dirname(current_dir))
-python_lib_path = os.path.join(project_root, 'part2_python')
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
 
-if python_lib_path not in sys.path:
-    sys.path.append(python_lib_path)
 
-# Import submodules
+from . import cache
+from . import seam_tools
+from . import live_preview
 from . import operator
 from . import panel
-from . import cache
-from . import live_preview
-from . import seam_tools
+
+if "operator" in locals():
+    importlib.reload(cache)
+    importlib.reload(seam_tools)
+    importlib.reload(live_preview)
+    importlib.reload(operator)
+    importlib.reload(panel)
 
 def register():
     cache.register()
