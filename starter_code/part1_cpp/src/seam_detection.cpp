@@ -22,10 +22,40 @@
 #include <vector>
 #include <set>
 #include <queue>
+#include <algorithm>
 
 #ifndef M_PI
   #define M_PI 3.14159265358979323846
 #endif
+
+static float get_edge_sharpness(const Mesh* mesh, int f0, int f1) {
+    if (f0 < 0 || f1 < 0) return 1.0f; 
+
+    const float* v = mesh->vertices;
+    const int* t = mesh->triangles;
+
+    // Normal f0
+    int i0=t[3*f0], i1=t[3*f0+1], i2=t[3*f0+2];
+    float p0[3]={v[3*i0],v[3*i0+1],v[3*i0+2]}, p1[3]={v[3*i1],v[3*i1+1],v[3*i1+2]}, p2[3]={v[3*i2],v[3*i2+1],v[3*i2+2]};
+    float e1[3]={p1[0]-p0[0], p1[1]-p0[1], p1[2]-p0[2]}, e2[3]={p2[0]-p0[0], p2[1]-p0[1], p2[2]-p0[2]};
+    float n0[3]={e1[1]*e2[2]-e1[2]*e2[1], e1[2]*e2[0]-e1[0]*e2[2], e1[0]*e2[1]-e1[1]*e2[0]};
+    
+    // FIX: Use sqrtf() instead of sqrt()
+    float l0=sqrtf(n0[0]*n0[0]+n0[1]*n0[1]+n0[2]*n0[2]); 
+    if(l0>0){n0[0]/=l0; n0[1]/=l0; n0[2]/=l0;}
+
+    // Normal f1
+    int j0=t[3*f1], j1=t[3*f1+1], j2=t[3*f1+2];
+    float q0[3]={v[3*j0],v[3*j0+1],v[3*j0+2]}, q1[3]={v[3*j1],v[3*j1+1],v[3*j1+2]}, q2[3]={v[3*j2],v[3*j2+1],v[3*j2+2]};
+    float d1[3]={q1[0]-q0[0], q1[1]-q0[1], q1[2]-q0[2]}, d2[3]={q2[0]-q0[0], q2[1]-q0[1], q2[2]-q0[2]};
+    float n1[3]={d1[1]*d2[2]-d1[2]*d2[1], d1[2]*d2[0]-d1[0]*d2[2], d1[0]*d2[1]-d1[1]*d2[0]};
+    
+    // FIX: Use sqrtf() instead of sqrt()
+    float l1=sqrtf(n1[0]*n1[0]+n1[1]*n1[1]+n1[2]*n1[2]); 
+    if(l1>0){n1[0]/=l1; n1[1]/=l1; n1[2]/=l1;}
+
+    return 1.0f - (n0[0]*n1[0] + n0[1]*n1[1] + n0[2]*n1[2]);
+}
 
 /**
  * @brief Compute angular defect at a vertex
@@ -160,6 +190,17 @@ int* detect_seams(const Mesh* mesh,
         }
     }
 
+    // This forces the BFS to explore flat surfaces first, pushing sharp edges to be seams.
+    for(int f = 0; f < F; ++f) {
+        std::sort(face_adj[f].begin(), face_adj[f].end(), 
+            [&](const std::pair<int,int>& a, const std::pair<int,int>& b) {
+                float costA = get_edge_sharpness(mesh, f, a.second);
+                float costB = get_edge_sharpness(mesh, f, b.second);
+                return costA < costB; 
+            }
+        );
+    }
+
     // 2. BFS spanning tree
 
     std::vector<char> visited(F, 0);
@@ -189,30 +230,14 @@ int* detect_seams(const Mesh* mesh,
 
     // 3.Seam candidates = non-tree edges
     
-    // for (int e = 0; e < E; ++e){
-    //     int f0 = edge_faces[2*e + 0];
-    //     int f1 = edge_faces[2*e + 1];   
-
-    //     if(f0 < 0  || f1 < 0){  // boundary edge
-    //         seam_candidates.insert(e);
-    //         continue;
-    //     }
-        
-    //     if(tree_edges.find(e) == tree_edges.end()){ // non-tree edge
-    //         seam_candidates.insert(e);
-    //     }
-    // }
-
-
-
     std::vector<int> non_tree_edges;
-    for (int  e = 0; e < E; ++e) {
+    for (int e = 0; e < E; ++e) {
         int f0 = edge_faces[2*e + 0];
         int f1 = edge_faces[2*e + 1];
         
-        if (f0 < 0 || f1 < 0){
-            continue;
-        }
+        // Skip boundary edges
+        if (f0 < 0 || f1 < 0) continue;
+        
         if(tree_edges.find(e) == tree_edges.end()){
             non_tree_edges.push_back(e);
         }
@@ -223,10 +248,32 @@ int* detect_seams(const Mesh* mesh,
         return NULL;
     }
 
-    std::set<int> non_tree_set(non_tree_edges.begin(), non_tree_edges.end());
+     
     for (int nte : non_tree_edges) {
-        seam_candidates.insert(nte);
+        int f0 = edge_faces[2*nte + 0];
+        int f1 = edge_faces[2*nte + 1];
+        float sharpness = get_edge_sharpness(mesh, f0, f1);
+        
+        // Threshold: 0.5 (approx 60 degrees) keeps Cubes seams, ignores Cylinder smoothness
+        if (sharpness > 0.5f) {
+            seam_candidates.insert(nte);
+        }
     }
+
+    // Fallback: If filtered everything out (e.g. Sphere/Cylinder),  still need at least one cut
+    if (seam_candidates.empty() && !non_tree_edges.empty()) {
+        // Pick the "sharpest" available non-tree edge to cut
+        int best_e = -1; 
+        float max_s = -1.0f;
+        for (int e : non_tree_edges) {
+            int f0 = edge_faces[2*e + 0];
+            int f1 = edge_faces[2*e + 1];
+            float s = get_edge_sharpness(mesh, f0, f1);
+            if (s > max_s) { max_s = s; best_e = e; }
+        }
+        if(best_e != -1) seam_candidates.insert(best_e);
+    }
+   
     
     //4. Angular defect refinement
 
@@ -237,9 +284,13 @@ int* detect_seams(const Mesh* mesh,
 
         if (defect > defect_threshold) {
             std::vector<int> incident_edges = get_vertex_edges(topo, v);
-
             for (int e : incident_edges) {
-                if (non_tree_set.find(e) != non_tree_set.end()) {
+                // Only add if it's already a valid candidate (non-tree)
+                // or if you want to force cuts at corners regardless of tree
+                bool is_non_tree = false;
+                for(int nte : non_tree_edges) if(nte == e) is_non_tree = true;
+                
+                if (is_non_tree) {
                     seam_candidates.insert(e);
                 }
             }
