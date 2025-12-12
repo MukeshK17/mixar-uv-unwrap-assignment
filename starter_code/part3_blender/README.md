@@ -17,8 +17,10 @@ part3_blender/
 │   ├── live_preview.py   # Background timer for auto-updates
 │   └── seam_tools.py     # Operators for seam marking/clearing
 ├── screenshots/          # Documentation images
-│   ├── panel_ui.png
-│   └── result_preview.png
+│   ├── Auto UV Unwrap Panel.png
+│   ├── Batch Unwrap.png
+│   ├── Marking Seams.png
+│   └── Quality Metrics.png
 ├── demo.blend            # Test file for the add-on
 └── README.md             # This documentation file
 ```

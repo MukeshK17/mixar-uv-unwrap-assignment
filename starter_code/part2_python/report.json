@@ -1,0 +1,79 @@
+{
+  "summary": {
+    "total_files": 5,
+    "successful": 5,
+    "failed": 0,
+    "total_real_time": 51.61796021461487,
+    "avg_processing_time": 45.60578122138977,
+    "avg_stretch": 176.97220659255981,
+    "avg_coverage": 0.20283584594726561,
+    "avg_angle_distortion": 1.7556106735779466
+  },
+  "files": [
+    {
+      "file": "mesh4.obj",
+      "vertices": 8,
+      "triangles": 4,
+      "time": 36.866076707839966,
+      "metrics": {
+        "stretch": 803.5667114257812,
+        "coverage": 0.18280792236328125,
+        "angle_distortion": 2.3404212379789118,
+        "num_islands": 2
+      },
+      "success": true
+    },
+    {
+      "file": "mesh5.obj",
+      "vertices": 8,
+      "triangles": 4,
+      "time": 41.30223631858826,
+      "metrics": {
+        "stretch": 14.45585823059082,
+        "coverage": 0.11013031005859375,
+        "angle_distortion": 1.4117364782907327,
+        "num_islands": 2
+      },
+      "success": true
+    },
+    {
+      "file": "mesh2.obj",
+      "vertices": 8,
+      "triangles": 4,
+      "time": 46.907517194747925,
+      "metrics": {
+        "stretch": 51.981502532958984,
+        "coverage": 0.28488922119140625,
+        "angle_distortion": 2.2583448946699574,
+        "num_islands": 2
+      },
+      "success": true
+    },
+    {
+      "file": "mesh1.obj",
+      "vertices": 8,
+      "triangles": 4,
+      "time": 51.33712100982666,
+      "metrics": {
+        "stretch": 3.0277228355407715,
+        "coverage": 0.2417593002319336,
+        "angle_distortion": 0.9253239201163295,
+        "num_islands": 2
+      },
+      "success": true
+    },
+    {
+      "file": "mesh3.obj",
+      "vertices": 8,
+      "triangles": 4,
+      "time": 51.615954875946045,
+      "metrics": {
+        "stretch": 11.829237937927246,
+        "coverage": 0.19459247589111328,
+        "angle_distortion": 1.8422268368338015,
+        "num_islands": 2
+      },
+      "success": true
+    }
+  ]
+}
